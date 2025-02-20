@@ -53,11 +53,11 @@ RUN curl -fsSL https://download.sublimetext.com/sublimehq-pub.gpg | apt-key add 
     apt-get install -y sublime-text
 
 # Build OpenCV (3.0 or higher should be fine)
-RUN apt-get install -y python3-dev python3-numpy 
-RUN apt-get install -y python-dev python-numpy
-RUN apt-get install -y libavcodec-dev libavformat-dev libswscale-dev
-RUN apt-get install -y libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev
-RUN apt-get install -y libgtk-3-dev
+RUN apt-get install -y python3-dev python3-numpy \
+    python-dev python-numpy \
+    libavcodec-dev libavformat-dev libswscale-dev \
+    libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
+    libgtk-3-dev
 
 RUN cd /tmp && git clone https://github.com/opencv/opencv.git && \
     cd opencv && \
@@ -78,21 +78,57 @@ RUN cd /tmp && git clone https://github.com/stevenlovegrove/Pangolin && \
 RUN apt-get install -y libusb-1.0-0-dev usbutils udev wget inetutils-ping
 
 # Copiar e instalar o Spinnaker SDK
-COPY spinnaker-4.0.0.116-amd64 /home/y/spinnaker-4.0.0.116-amd64
-WORKDIR /home/y/spinnaker-4.0.0.116-amd64
+COPY spinnaker-2.6.0.160-amd64 /home/y/spinnaker-2.6.0.160-amd64
+WORKDIR /home/y/spinnaker-2.6.0.160-amd64
 
-# Executar o script de instalação de forma não interativa
 RUN chmod +x install_spinnaker.sh && \
     yes | ./install_spinnaker.sh && \
     usermod -aG flirimaging y
 
-# Voltar ao usuário y
+# Permissão para acessar dispositivos USB
+RUN echo 'SUBSYSTEM=="usb", MODE="0666", GROUP="users"' > /etc/udev/rules.d/99-usb.rules
+
+# Adicionar usuário ao grupo dialout para acesso a dispositivos seriais
+RUN usermod -aG dialout y
+
 USER y
+
+# Configurar o ambiente do ROS
+RUN echo "source /opt/ros/noetic/setup.bash" >> /home/y/.bashrc
+
+# Instalar catkin e ferramentas relacionadas
+USER root
+RUN apt-get update && apt-get install -y python3-catkin-pkg python3-catkin-tools python3-osrf-pycommon
+USER y
+
+# Criar e configurar o workspace do ROS (ros_ws)
+RUN /bin/bash -c "mkdir -p /home/y/ros_ws/src && \
+    cd /home/y/ros_ws/src && \
+    source /opt/ros/noetic/setup.bash && \
+    catkin_init_workspace && \
+    cd /home/y/ros_ws && \
+    catkin_make && \
+    echo 'source /home/y/ros_ws/devel/setup.bash' >> /home/y/.bashrc"
+
+# Inicializar e atualizar o rosdep
+USER root
+RUN bash -c "source /opt/ros/noetic/setup.bash && rosdep init || true && rosdep update"
+USER y
+
+# Instalar e configurar o driver do STIM 300
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && \
+    rosdep init || true && \
+    rosdep update && \
+    cd /home/y/ros_ws/src && \
+    git clone https://github.com/Projeto-Voris/stim300-driver.git && \
+    cd /home/y/ros_ws && \
+    rosdep install --from-paths src --ignore-src -r -y && \
+    catkin_make && \
+    echo 'source /home/y/ros_ws/devel/setup.bash' >> /home/y/.bashrc"
 
 # Copiar o arquivo ros_entrypoint.sh com o proprietário correto
 COPY --chown=y:y ros_entrypoint.sh /home/y/ros_entrypoint.sh
 
-# Definir permissões de execução como root
 USER root
 RUN chmod +x /home/y/ros_entrypoint.sh
 USER y
@@ -104,7 +140,6 @@ ENV LANG en_US.UTF-8
 # Definir o ponto de entrada
 ENTRYPOINT ["/home/y/ros_entrypoint.sh"]
 
-# terminal colors with xterm
 ENV TERM xterm
 
 # Clone ORB_SLAM3 repository no diretório do usuário y

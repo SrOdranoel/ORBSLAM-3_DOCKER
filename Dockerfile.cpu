@@ -35,6 +35,7 @@ RUN apt-get install -y \
         unzip \
         pkg-config \
         python3-dev \
+        nano \
         # OpenCV dependencies
         python3-numpy \
         # Pangolin dependencies
@@ -75,7 +76,7 @@ RUN cd /tmp && git clone https://github.com/stevenlovegrove/Pangolin && \
     cd / && rm -rf /tmp/Pangolin
 
 # Instalação das dependências do Spinnaker
-RUN apt-get install -y libusb-1.0-0-dev usbutils udev wget inetutils-ping
+RUN apt-get install -y libusb-1.0-0-dev usbutils udev wget inetutils-ping ros-noetic-image-exposure-msgs ros-noetic-statistics-msgs ros-noetic-wfov-camera-msgs
 
 # Copiar e instalar o Spinnaker SDK
 COPY spinnaker-2.6.0.160-amd64 /home/y/spinnaker-2.6.0.160-amd64
@@ -124,7 +125,21 @@ RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && \
     cd /home/y/ros_ws && \
     rosdep install --from-paths src --ignore-src -r -y && \
     catkin_make && \
-    echo 'source /home/y/ros_ws/devel/setup.bash' >> /home/y/.bashrc"
+    source ~/.bashrc"
+
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && \
+    cd /home/y/ros_ws/src && \
+    git clone -b noetic-devel https://github.com/Projeto-Voris/flir_camera_driver.git && \
+    cd /home/y/ros_ws && \
+    catkin_make && \
+    source ~/.bashrc"
+
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && \
+    cd /home/y/ros_ws/src && \
+    git clone -b noetic https://github.com/Projeto-Voris/voris_bringup.git && \
+    cd /home/y/ros_ws && \
+    catkin_make && \
+    source ~/.bashrc"
 
 # Copiar o arquivo ros_entrypoint.sh com o proprietário correto
 COPY --chown=y:y ros_entrypoint.sh /home/y/ros_entrypoint.sh
@@ -148,5 +163,13 @@ RUN git clone -b v0.4-beta https://github.com/UZ-SLAMLab/ORB_SLAM3.git /home/y/O
 # Definir o diretório de trabalho para o ORB_SLAM3
 WORKDIR /home/y/ORB_SLAM3
 
+# Instalar dependências do ORB_SLAM3
+RUN /bin/bash -c "chmod +x build.sh && \
+                ./build.sh"
+
+# Instalar dependecias do ORB_SLAM3 ROS
+RUN /bin/bash -c "echo 'ROS_PACKAGE_PATH=/opt/ros/noetic/share:/home/y/ORB_SLAM3/Examples/ROS'>>~/.bashrc && source ~/.bashrc && cd /home/y/ORB_SLAM3"
+
+RUN /bin/bash -c "cd && source ros_ws/devel/setup.bash"
 # Definir o comando padrão
 CMD ["bash"]

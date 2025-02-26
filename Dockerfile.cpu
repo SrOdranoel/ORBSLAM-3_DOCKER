@@ -158,7 +158,9 @@ ENTRYPOINT ["/home/y/ros_entrypoint.sh"]
 ENV TERM xterm
 
 # Clone ORB_SLAM3 repository no diretório do usuário y
-RUN git clone -b v0.4-beta https://github.com/UZ-SLAMLab/ORB_SLAM3.git /home/y/ORB_SLAM3
+#RUN git clone -b v0.4-beta https://github.com/UZ-SLAMLab/ORB_SLAM3.git /home/y/ORB_SLAM3
+# Use modified repository instead of reference
+RUN git clone -b develop https://github.com/SrOdranoel/ORB_SLAM3.git /home/y/ORB_SLAM3
 
 # Definir o diretório de trabalho para o ORB_SLAM3
 WORKDIR /home/y/ORB_SLAM3
